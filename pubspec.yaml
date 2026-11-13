@@ -1,0 +1,11 @@
+name: cam_board_core
+description: cam-board 看板端與鄉民端共用的純 Dart 邏輯（通訊協定、狀態規則、視窗大小計算）。
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.7
+
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.33.0
