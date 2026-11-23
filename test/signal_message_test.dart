@@ -3,6 +3,15 @@ import 'package:test/test.dart';
 
 void main() {
   group('編碼後再解析會得到同樣的訊息', () {
+    test('hello', () {
+      final decoded = SignalMessage.decode(
+        const HelloMessage(name: '教室白板').encode(),
+      );
+      decoded as HelloMessage;
+      expect(decoded.name, '教室白板');
+      expect(decoded.isCompatible, isTrue);
+    });
+
     test('join', () {
       final decoded = SignalMessage.decode(const JoinMessage().encode());
       expect(decoded, isA<JoinMessage>());
@@ -61,6 +70,7 @@ void main() {
       '不是物件': '[1,2,3]',
       '沒有 type': '{"sdp":"v=0"}',
       '未知的 type': '{"type":"dance"}',
+      'hello 缺名字': '{"type":"hello","protocol":1}',
       'offer 缺 sdp': '{"type":"offer"}',
       'sdp 不是字串': '{"type":"answer","sdp":5}',
       'join 的 protocol 不是整數': '{"type":"join","protocol":"1"}',

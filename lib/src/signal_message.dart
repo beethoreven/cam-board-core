@@ -31,7 +31,8 @@ enum ByeReason {
 
 /// 兩端透過 WebSocket 交換的訊息。每則訊息是一個 JSON 物件，`type` 決定種類。
 ///
-/// 流程：鄉民端連上後送 [JoinMessage] → 看板端回 [OfferMessage] →
+/// 流程：鄉民端一連上，看板端先送 [HelloMessage] 報上名字 →
+/// 鄉民端要看畫面時送 [JoinMessage] → 看板端回 [OfferMessage] →
 /// 鄉民端回 [AnswerMessage]；期間雙方互送 [CandidateMessage]；
 /// 任一方送 [ByeMessage] 就結束。
 sealed class SignalMessage {
@@ -56,6 +57,10 @@ sealed class SignalMessage {
     }
     final type = json['type'];
     return switch (type) {
+      'hello' => HelloMessage(
+        name: _string(json, 'name'),
+        protocol: _int(json, 'protocol'),
+      ),
       'join' => JoinMessage(protocol: _int(json, 'protocol')),
       'offer' => OfferMessage(sdp: _string(json, 'sdp')),
       'answer' => AnswerMessage(sdp: _string(json, 'sdp')),
@@ -80,6 +85,25 @@ sealed class SignalMessage {
     if (value is! int) throw FormatException('欄位 $key 必須是整數');
     return value;
   }
+}
+
+/// 看板端：連線一建立就送出，報上看板名稱與通訊協定版本。
+///
+/// 鄉民端手動輸入位址時，靠這則訊息確認對方真的是看板，並取得名稱。
+final class HelloMessage extends SignalMessage {
+  const HelloMessage({required this.name, this.protocol = protocolVersion});
+
+  final String name;
+  final int protocol;
+
+  bool get isCompatible => protocol == protocolVersion;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'hello',
+    'name': name,
+    'protocol': protocol,
+  };
 }
 
 /// 鄉民端：我要看這個看板。

@@ -4,8 +4,10 @@
 /// 兩端怎麼互相說話、看板怎麼在區域網路上被描述、鄉民端視窗該多大。
 library;
 
+export 'src/board_directory.dart';
 export 'src/board_info.dart';
 export 'src/board_session.dart';
+export 'src/lan_address.dart';
 export 'src/signal_message.dart';
 export 'src/view_geometry.dart';
 export 'src/viewer_session.dart';
