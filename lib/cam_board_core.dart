@@ -7,6 +7,7 @@ library;
 export 'src/board_directory.dart';
 export 'src/board_info.dart';
 export 'src/board_session.dart';
+export 'src/candidate_gate.dart';
 export 'src/lan_address.dart';
 export 'src/signal_message.dart';
 export 'src/view_geometry.dart';
