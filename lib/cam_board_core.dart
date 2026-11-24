@@ -11,3 +11,4 @@ export 'src/lan_address.dart';
 export 'src/signal_message.dart';
 export 'src/view_geometry.dart';
 export 'src/viewer_session.dart';
+export 'src/zoom.dart';
