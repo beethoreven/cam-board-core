@@ -51,6 +51,45 @@ void main() {
       expect(bare.sdpMLineIndex, isNull);
     });
 
+    test('join 帶著鄉民名稱', () {
+      final decoded = SignalMessage.decode(
+        const JoinMessage(name: '阿明的 Mac').encode(),
+      );
+      expect((decoded as JoinMessage).name, '阿明的 Mac');
+    });
+
+    test('舊版沒有名稱的 join 仍然解析得出來，才能回覆版本不同', () {
+      final decoded = SignalMessage.decode('{"type":"join","protocol":2}');
+      decoded as JoinMessage;
+      expect(decoded.name, '');
+      expect(decoded.isCompatible, isFalse);
+    });
+
+    test('抄錄的開始與結束', () {
+      expect(
+        SignalMessage.decode(const RecordStartMessage().encode()),
+        isA<RecordStartMessage>(),
+      );
+      expect(
+        SignalMessage.decode(const RecordStopMessage().encode()),
+        isA<RecordStopMessage>(),
+      );
+    });
+
+    test('照片與存好了', () {
+      final shot = SignalMessage.decode(
+        const ShotMessage(id: 7, bytes: 2048).encode(),
+      );
+      shot as ShotMessage;
+      expect(shot.id, 7);
+      expect(shot.bytes, 2048);
+
+      final saved = SignalMessage.decode(
+        const ShotSavedMessage(id: 7).encode(),
+      );
+      expect((saved as ShotSavedMessage).id, 7);
+    });
+
     test('candidates_done', () {
       final decoded = SignalMessage.decode(
         const CandidatesDoneMessage().encode(),
@@ -82,6 +121,8 @@ void main() {
       'sdp 不是字串': '{"type":"answer","sdp":5}',
       'join 的 protocol 不是整數': '{"type":"join","protocol":"1"}',
       'bye 的原因未知': '{"type":"bye","reason":"bored"}',
+      'shot 缺大小': '{"type":"shot","id":1}',
+      'shot_saved 的編號不是整數': '{"type":"shot_saved","id":"1"}',
     };
     badInputs.forEach((name, raw) {
       test(name, () {

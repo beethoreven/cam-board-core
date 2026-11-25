@@ -78,3 +78,31 @@ WindowFrame fitWindowToScreen({
 }
 
 double _min(double a, double b) => a < b ? a : b;
+
+/// 一個框裡用「完整顯示、不裁切」的方式放著畫面時，把點在框上的位置
+/// 換算成畫面上的位置（0 到 1 的比例，(0, 0) 是畫面的左上角）。
+///
+/// 畫面的比例和框不同時，畫面只佔框的中間，兩旁或上下是空的；
+/// 直接拿框的大小去換算，點的位置就會偏掉。點在空白處時結果會超出 0 到 1。
+///
+/// [contentAspect] 是畫面的寬除以高。
+({double x, double y}) pointInFittedContent({
+  required Dimensions box,
+  required double contentAspect,
+  required double dx,
+  required double dy,
+}) {
+  final boxAspect = box.width / box.height;
+  final double width;
+  final double height;
+  if (boxAspect > contentAspect) {
+    height = box.height;
+    width = height * contentAspect;
+  } else {
+    width = box.width;
+    height = width / contentAspect;
+  }
+  final left = (box.width - width) / 2;
+  final top = (box.height - height) / 2;
+  return (x: (dx - left) / width, y: (dy - top) / height);
+}

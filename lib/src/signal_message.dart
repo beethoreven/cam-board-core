@@ -4,7 +4,9 @@ import 'dart:convert';
 /// 不會等到畫面出不來才發現。
 ///
 /// 版本 2：新增 [CandidatesDoneMessage]。
-const int protocolVersion = 2;
+/// 版本 3：[JoinMessage] 帶上鄉民名稱；新增抄錄用的 [RecordStartMessage]、
+/// [RecordStopMessage]、[ShotMessage]、[ShotSavedMessage]。
+const int protocolVersion = 3;
 
 /// 結束觀看的原因。
 enum ByeReason {
@@ -38,6 +40,10 @@ enum ByeReason {
 /// 鄉民端回 [AnswerMessage]；期間雙方互送 [CandidateMessage]，
 /// 看板端的網路路徑全部送完時再送一則 [CandidatesDoneMessage]；
 /// 任一方送 [ByeMessage] 就結束。
+///
+/// 抄錄：鄉民端開始和結束時送 [RecordStartMessage]、[RecordStopMessage]；
+/// 看板端按拍照時，對抄錄中的鄉民端送 [ShotMessage]，後面緊接著一筆二進位資料
+/// （那張照片的 PNG）；鄉民端存好之後回 [ShotSavedMessage]。
 sealed class SignalMessage {
   const SignalMessage();
 
@@ -64,7 +70,12 @@ sealed class SignalMessage {
         name: _string(json, 'name'),
         protocol: _int(json, 'protocol'),
       ),
-      'join' => JoinMessage(protocol: _int(json, 'protocol')),
+      'join' => JoinMessage(
+        protocol: _int(json, 'protocol'),
+        // 舊版的鄉民端不會帶名稱。這裡不能因此丟掉整則訊息，
+        // 否則看板端沒辦法回覆它「版本不同」。
+        name: json['name'] is String ? json['name'] as String : '',
+      ),
       'offer' => OfferMessage(sdp: _string(json, 'sdp')),
       'answer' => AnswerMessage(sdp: _string(json, 'sdp')),
       'candidate' => CandidateMessage(
@@ -73,6 +84,10 @@ sealed class SignalMessage {
         sdpMLineIndex: json['sdpMLineIndex'] as int?,
       ),
       'candidates_done' => const CandidatesDoneMessage(),
+      'record_start' => const RecordStartMessage(),
+      'record_stop' => const RecordStopMessage(),
+      'shot' => ShotMessage(id: _int(json, 'id'), bytes: _int(json, 'bytes')),
+      'shot_saved' => ShotSavedMessage(id: _int(json, 'id')),
       'bye' => ByeMessage(ByeReason.fromWire(_string(json, 'reason'))),
       _ => throw FormatException('未知的訊息種類：$type'),
     };
@@ -112,14 +127,21 @@ final class HelloMessage extends SignalMessage {
 
 /// 鄉民端：我要看這個看板。
 final class JoinMessage extends SignalMessage {
-  const JoinMessage({this.protocol = protocolVersion});
+  const JoinMessage({this.protocol = protocolVersion, this.name = ''});
 
   final int protocol;
+
+  /// 鄉民的名稱，看板端用來顯示「誰抄錄了這個內容」。
+  final String name;
 
   bool get isCompatible => protocol == protocolVersion;
 
   @override
-  Map<String, Object?> toJson() => {'type': 'join', 'protocol': protocol};
+  Map<String, Object?> toJson() => {
+    'type': 'join',
+    'protocol': protocol,
+    'name': name,
+  };
 }
 
 /// 看板端：這是我的畫面連線資訊。
@@ -172,6 +194,46 @@ final class CandidatesDoneMessage extends SignalMessage {
 
   @override
   Map<String, Object?> toJson() => {'type': 'candidates_done'};
+}
+
+/// 鄉民端：我開始抄錄了，之後拍的照片請傳給我。
+final class RecordStartMessage extends SignalMessage {
+  const RecordStartMessage();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'record_start'};
+}
+
+/// 鄉民端：我抄錄完了，之後拍的照片不用再傳給我。
+final class RecordStopMessage extends SignalMessage {
+  const RecordStopMessage();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'record_stop'};
+}
+
+/// 看板端：拍了一張照片。緊接在這則訊息後面的那一筆二進位資料就是它的 PNG。
+final class ShotMessage extends SignalMessage {
+  const ShotMessage({required this.id, required this.bytes});
+
+  /// 這張照片的編號，鄉民端回覆 [ShotSavedMessage] 時帶回來。
+  final int id;
+
+  /// PNG 的大小，鄉民端用來確認收到的資料是完整的。
+  final int bytes;
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'shot', 'id': id, 'bytes': bytes};
+}
+
+/// 鄉民端：編號 [id] 的照片已經存好了。
+final class ShotSavedMessage extends SignalMessage {
+  const ShotSavedMessage({required this.id});
+
+  final int id;
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'shot_saved', 'id': id};
 }
 
 /// 任一方：結束觀看。

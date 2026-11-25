@@ -99,4 +99,59 @@ void main() {
       expect(frame.size.aspectRatio, closeTo(small.aspectRatio, 0.0001));
     });
   });
+
+  group('pointInFittedContent', () {
+    test('畫面和框的比例一樣時，位置就是框上的比例', () {
+      final point = pointInFittedContent(
+        box: const Dimensions(400, 800),
+        contentAspect: 0.5,
+        dx: 100,
+        dy: 600,
+      );
+      expect(point.x, closeTo(0.25, 1e-9));
+      expect(point.y, closeTo(0.75, 1e-9));
+    });
+
+    test('框比畫面寬：畫面在中間，左右是空的', () {
+      // 框 800×800，畫面是直的（寬高比 0.5），所以畫面寬 400，從 x=200 開始。
+      const box = Dimensions(800, 800);
+      final leftEdge = pointInFittedContent(
+        box: box,
+        contentAspect: 0.5,
+        dx: 200,
+        dy: 0,
+      );
+      final center = pointInFittedContent(
+        box: box,
+        contentAspect: 0.5,
+        dx: 400,
+        dy: 400,
+      );
+      expect(leftEdge.x, closeTo(0, 1e-9));
+      expect(center.x, closeTo(0.5, 1e-9));
+      expect(center.y, closeTo(0.5, 1e-9));
+    });
+
+    test('框比畫面高：畫面在中間，上下是空的', () {
+      // 框 800×800，畫面是橫的（寬高比 2），所以畫面高 400，從 y=200 開始。
+      final point = pointInFittedContent(
+        box: const Dimensions(800, 800),
+        contentAspect: 2,
+        dx: 800,
+        dy: 600,
+      );
+      expect(point.x, closeTo(1, 1e-9));
+      expect(point.y, closeTo(1, 1e-9));
+    });
+
+    test('點在空白處時超出 0 到 1，由呼叫的人決定怎麼處理', () {
+      final point = pointInFittedContent(
+        box: const Dimensions(800, 800),
+        contentAspect: 0.5,
+        dx: 100,
+        dy: 400,
+      );
+      expect(point.x, lessThan(0));
+    });
+  });
 }
