@@ -51,6 +51,13 @@ void main() {
       expect(bare.sdpMLineIndex, isNull);
     });
 
+    test('candidates_done', () {
+      final decoded = SignalMessage.decode(
+        const CandidatesDoneMessage().encode(),
+      );
+      expect(decoded, isA<CandidatesDoneMessage>());
+    });
+
     test('bye 的每一種原因', () {
       for (final reason in ByeReason.values) {
         final decoded = SignalMessage.decode(ByeMessage(reason).encode());

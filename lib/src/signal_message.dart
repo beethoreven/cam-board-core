@@ -2,7 +2,9 @@ import 'dart:convert';
 
 /// 通訊協定版本。兩端版本不同時，鄉民端在 [JoinMessage] 就會被拒絕，
 /// 不會等到畫面出不來才發現。
-const int protocolVersion = 1;
+///
+/// 版本 2：新增 [CandidatesDoneMessage]。
+const int protocolVersion = 2;
 
 /// 結束觀看的原因。
 enum ByeReason {
@@ -33,7 +35,8 @@ enum ByeReason {
 ///
 /// 流程：鄉民端一連上，看板端先送 [HelloMessage] 報上名字 →
 /// 鄉民端要看畫面時送 [JoinMessage] → 看板端回 [OfferMessage] →
-/// 鄉民端回 [AnswerMessage]；期間雙方互送 [CandidateMessage]；
+/// 鄉民端回 [AnswerMessage]；期間雙方互送 [CandidateMessage]，
+/// 看板端的網路路徑全部送完時再送一則 [CandidatesDoneMessage]；
 /// 任一方送 [ByeMessage] 就結束。
 sealed class SignalMessage {
   const SignalMessage();
@@ -69,6 +72,7 @@ sealed class SignalMessage {
         sdpMid: json['sdpMid'] as String?,
         sdpMLineIndex: json['sdpMLineIndex'] as int?,
       ),
+      'candidates_done' => const CandidatesDoneMessage(),
       'bye' => ByeMessage(ByeReason.fromWire(_string(json, 'reason'))),
       _ => throw FormatException('未知的訊息種類：$type'),
     };
@@ -157,6 +161,17 @@ final class CandidateMessage extends SignalMessage {
     'sdpMid': sdpMid,
     'sdpMLineIndex': sdpMLineIndex,
   };
+}
+
+/// 看板端：我的網路路徑全部送完了，不會再有新的。
+///
+/// 鄉民端收到之後如果畫面還是連不上，就知道問題出在兩台裝置之間的網路，
+/// 不是還有路徑沒到。規則見 `connect_progress.dart`。
+final class CandidatesDoneMessage extends SignalMessage {
+  const CandidatesDoneMessage();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'candidates_done'};
 }
 
 /// 任一方：結束觀看。
