@@ -1,12 +1,17 @@
 import 'dart:convert';
 
+import 'raw_frame.dart';
+
 /// 通訊協定版本。兩端版本不同時，鄉民端在 [JoinMessage] 就會被拒絕，
 /// 不會等到畫面出不來才發現。
 ///
 /// 版本 2：新增 [CandidatesDoneMessage]。
 /// 版本 3：[JoinMessage] 帶上鄉民名稱；新增抄錄用的 [RecordStartMessage]、
-/// [RecordStopMessage]、[ShotMessage]、[ShotSavedMessage]。
-const int protocolVersion = 3;
+/// [RecordStopMessage]、[ShotMessage]、[ShotReceivedMessage]。
+/// 版本 4：照片改送還沒壓縮的畫面（見 [RawFrame]），[ShotMessage] 改帶寬、高和角度；
+/// 壓成 PNG 改由鄉民端做。`shot_saved` 改成 `shot_received`：鄉民端收完整就回報，
+/// 不等存檔。
+const int protocolVersion = 4;
 
 /// 結束觀看的原因。
 enum ByeReason {
@@ -43,7 +48,7 @@ enum ByeReason {
 ///
 /// 抄錄：鄉民端開始和結束時送 [RecordStartMessage]、[RecordStopMessage]；
 /// 看板端按拍照時，對抄錄中的鄉民端送 [ShotMessage]，後面緊接著一筆二進位資料
-/// （那張照片的 PNG）；鄉民端存好之後回 [ShotSavedMessage]。
+/// （那張照片還沒壓縮的畫面，見 [RawFrame]）；鄉民端確認收完整就回 [ShotReceivedMessage]。
 sealed class SignalMessage {
   const SignalMessage();
 
@@ -86,8 +91,13 @@ sealed class SignalMessage {
       'candidates_done' => const CandidatesDoneMessage(),
       'record_start' => const RecordStartMessage(),
       'record_stop' => const RecordStopMessage(),
-      'shot' => ShotMessage(id: _int(json, 'id'), bytes: _int(json, 'bytes')),
-      'shot_saved' => ShotSavedMessage(id: _int(json, 'id')),
+      'shot' => ShotMessage.checked(
+        id: _int(json, 'id'),
+        width: _int(json, 'width'),
+        height: _int(json, 'height'),
+        rotation: _int(json, 'rotation'),
+      ),
+      'shot_received' => ShotReceivedMessage(id: _int(json, 'id')),
       'bye' => ByeMessage(ByeReason.fromWire(_string(json, 'reason'))),
       _ => throw FormatException('未知的訊息種類：$type'),
     };
@@ -212,28 +222,69 @@ final class RecordStopMessage extends SignalMessage {
   Map<String, Object?> toJson() => {'type': 'record_stop'};
 }
 
-/// 看板端：拍了一張照片。緊接在這則訊息後面的那一筆二進位資料就是它的 PNG。
+/// 看板端：拍了一張照片。緊接在這則訊息後面的那一筆二進位資料就是它的畫面
+/// （還沒壓縮，格式見 [RawFrame]）。
 final class ShotMessage extends SignalMessage {
-  const ShotMessage({required this.id, required this.bytes});
+  const ShotMessage({
+    required this.id,
+    required this.width,
+    required this.height,
+    required this.rotation,
+  });
 
-  /// 這張照片的編號，鄉民端回覆 [ShotSavedMessage] 時帶回來。
+  /// 收到的訊息用這個建立：尺寸或角度不合理時當成格式錯誤。
+  factory ShotMessage.checked({
+    required int id,
+    required int width,
+    required int height,
+    required int rotation,
+  }) {
+    if (!RawFrame.isValidSize(width, height)) {
+      throw FormatException('照片的寬和高必須是正的偶數：$width×$height');
+    }
+    if (!RawFrame.isValidRotation(rotation)) {
+      throw FormatException('照片的角度只能是 0、90、180、270：$rotation');
+    }
+    return ShotMessage(
+      id: id,
+      width: width,
+      height: height,
+      rotation: rotation,
+    );
+  }
+
+  /// 這張照片的編號，鄉民端回覆 [ShotReceivedMessage] 時帶回來。
   final int id;
 
-  /// PNG 的大小，鄉民端用來確認收到的資料是完整的。
-  final int bytes;
+  /// 畫面資料裡的寬和高（還沒轉正）。
+  final int width;
+  final int height;
+
+  /// 要順時針轉幾度才是正的。
+  final int rotation;
+
+  /// 後面那筆畫面資料的大小，鄉民端用來確認收到的資料是完整的。
+  int get bytes => RawFrame.byteLength(width, height);
 
   @override
-  Map<String, Object?> toJson() => {'type': 'shot', 'id': id, 'bytes': bytes};
+  Map<String, Object?> toJson() => {
+    'type': 'shot',
+    'id': id,
+    'width': width,
+    'height': height,
+    'rotation': rotation,
+  };
 }
 
-/// 鄉民端：編號 [id] 的照片已經存好了。
-final class ShotSavedMessage extends SignalMessage {
-  const ShotSavedMessage({required this.id});
+/// 鄉民端：編號 [id] 的照片完整收到了。看板端收到這則就顯示誰抄錄了；
+/// 轉成 PNG 和存檔是鄉民端之後自己的事，不讓看板端等。
+final class ShotReceivedMessage extends SignalMessage {
+  const ShotReceivedMessage({required this.id});
 
   final int id;
 
   @override
-  Map<String, Object?> toJson() => {'type': 'shot_saved', 'id': id};
+  Map<String, Object?> toJson() => {'type': 'shot_received', 'id': id};
 }
 
 /// 任一方：結束觀看。

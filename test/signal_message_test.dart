@@ -76,18 +76,25 @@ void main() {
       );
     });
 
-    test('照片與存好了', () {
+    test('照片與收到了', () {
       final shot = SignalMessage.decode(
-        const ShotMessage(id: 7, bytes: 2048).encode(),
+        const ShotMessage(
+          id: 7,
+          width: 1920,
+          height: 1080,
+          rotation: 90,
+        ).encode(),
       );
       shot as ShotMessage;
       expect(shot.id, 7);
-      expect(shot.bytes, 2048);
+      expect((shot.width, shot.height, shot.rotation), (1920, 1080, 90));
+      // 後面那筆畫面資料的大小：寬×高×1.5。
+      expect(shot.bytes, 3110400);
 
       final saved = SignalMessage.decode(
-        const ShotSavedMessage(id: 7).encode(),
+        const ShotReceivedMessage(id: 7).encode(),
       );
-      expect((saved as ShotSavedMessage).id, 7);
+      expect((saved as ShotReceivedMessage).id, 7);
     });
 
     test('candidates_done', () {
@@ -119,10 +126,14 @@ void main() {
       'hello 缺名字': '{"type":"hello","protocol":1}',
       'offer 缺 sdp': '{"type":"offer"}',
       'sdp 不是字串': '{"type":"answer","sdp":5}',
+      'shot 沒有尺寸': '{"type":"shot","id":1,"bytes":10}',
+      'shot 的寬是奇數': '{"type":"shot","id":1,"width":3,"height":2,"rotation":0}',
+      'shot 的角度不是四個方向':
+          '{"type":"shot","id":1,"width":4,"height":2,"rotation":45}',
       'join 的 protocol 不是整數': '{"type":"join","protocol":"1"}',
       'bye 的原因未知': '{"type":"bye","reason":"bored"}',
       'shot 缺大小': '{"type":"shot","id":1}',
-      'shot_saved 的編號不是整數': '{"type":"shot_saved","id":"1"}',
+      'shot_received 的編號不是整數': '{"type":"shot_received","id":"1"}',
     };
     badInputs.forEach((name, raw) {
       test(name, () {

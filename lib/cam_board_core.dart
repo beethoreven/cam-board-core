@@ -11,6 +11,7 @@ export 'src/candidate_gate.dart';
 export 'src/connect_progress.dart';
 export 'src/focus_control.dart';
 export 'src/lan_address.dart';
+export 'src/raw_frame.dart';
 export 'src/recording.dart';
 export 'src/signal_message.dart';
 export 'src/view_geometry.dart';
