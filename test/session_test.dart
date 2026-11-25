@@ -38,6 +38,14 @@ void main() {
       expect(session.lastEndReason, ByeReason.boardStopped);
     });
 
+    test('連線中斷或逾時沒有明確的原因，記成 null', () {
+      final session = ViewerSession()
+        ..startConnecting()
+        ..end(null);
+      expect(session.state, ViewerState.browsing);
+      expect(session.lastEndReason, isNull);
+    });
+
     test('在清單時結束不做任何事', () {
       final session = ViewerSession()..end(ByeReason.viewerLeft);
       expect(session.state, ViewerState.browsing);

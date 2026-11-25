@@ -131,7 +131,10 @@ void main() {
       'shot 的角度不是四個方向':
           '{"type":"shot","id":1,"width":4,"height":2,"rotation":45}',
       'join 的 protocol 不是整數': '{"type":"join","protocol":"1"}',
-      'bye 的原因未知': '{"type":"bye","reason":"bored"}',
+      'shot 大得不合理':
+          '{"type":"shot","id":1,"width":100000,"height":100000,"rotation":0}',
+      'hello 的名稱超過看板名稱的上限':
+          '{"type":"hello","protocol":4,"name":"${'字' * 22}"}',
       'shot 缺大小': '{"type":"shot","id":1}',
       'shot_received 的編號不是整數': '{"type":"shot_received","id":"1"}',
     };
@@ -139,6 +142,23 @@ void main() {
       test(name, () {
         expect(() => SignalMessage.decode(raw), throwsFormatException);
       });
+    });
+  });
+
+  group('對方給的內容先整理過', () {
+    test('bye 的原因不認得時還是當成結束，不丟掉', () {
+      final decoded = SignalMessage.decode('{"type":"bye","reason":"bored"}');
+      decoded as ByeMessage;
+      expect(decoded.reason, ByeReason.boardStopped);
+    });
+
+    test('join 的名稱太長會截短，控制字元會去掉', () {
+      final decoded = SignalMessage.decode(
+        JoinMessage(name: '阿\n明${'很' * 100}').encode(),
+      );
+      decoded as JoinMessage;
+      expect(decoded.name.runes.length, maxViewerNameLength);
+      expect(decoded.name, startsWith('阿 明'));
     });
   });
 }

@@ -14,7 +14,7 @@ final class RawFrame {
     required this.i420,
   }) {
     if (!isValidSize(width, height)) {
-      throw ArgumentError('畫面的寬和高必須是正的偶數：$width×$height');
+      throw ArgumentError('畫面的寬和高必須是正的偶數，而且不超過 $maxSide：$width×$height');
     }
     if (!isValidRotation(rotation)) {
       throw ArgumentError('畫面的角度只能是 0、90、180、270：$rotation');
@@ -36,9 +36,18 @@ final class RawFrame {
   /// 亮度、色差 U、色差 V 依序接在一起，每一列之間沒有多餘的空位。
   final Uint8List i420;
 
+  /// 寬和高各自的上限。看板端的鏡頭是 1920×1080，這裡留了餘裕；
+  /// 設上限是因為尺寸是對方給的，鄉民端會照它配置記憶體。
+  static const int maxSide = 4096;
+
   /// 色差每 2×2 個像素共用一個值，所以寬和高都要是偶數。
   static bool isValidSize(int width, int height) =>
-      width > 0 && height > 0 && width.isEven && height.isEven;
+      width > 0 &&
+      height > 0 &&
+      width <= maxSide &&
+      height <= maxSide &&
+      width.isEven &&
+      height.isEven;
 
   static bool isValidRotation(int rotation) =>
       rotation == 0 || rotation == 90 || rotation == 180 || rotation == 270;

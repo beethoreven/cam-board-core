@@ -37,3 +37,17 @@ int _rank(String name) {
   const wifiPrefixes = ['wlan', 'ap', 'swlan', 'softap', 'en'];
   return wifiPrefixes.any(name.startsWith) ? 0 : 1;
 }
+
+/// 連進來的對方是不是在區域網路上：私有網段、同一台裝置（127.x）、
+/// 或沒有 DHCP 時自動取得的位址（169.254.x.x）。
+///
+/// 看板端的伺服器開在手機的所有網路介面上（位址會隨著換網路而變，沒辦法只綁一個），
+/// 所以改成檢查對方的位址：從行動網路那一側連進來的不收。
+bool isLanPeer(String address) {
+  // 有些系統會把 IPv4 的對方寫成 ::ffff:192.168.1.5。
+  final text = address.startsWith('::ffff:') ? address.substring(7) : address;
+  if (_isPrivate(text)) return true;
+  final parts = text.split('.').map(int.tryParse).toList();
+  if (parts.length != 4 || parts.contains(null)) return false;
+  return parts[0] == 127 || (parts[0] == 169 && parts[1] == 254);
+}

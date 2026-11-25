@@ -11,6 +11,17 @@ String safeFileName(String name) {
   return trimmed.isEmpty ? '看板' : trimmed;
 }
 
+/// 鄉民名稱最多幾個字。它會顯示在看板端的提示裡。
+const int maxViewerNameLength = 30;
+
+/// 整理鄉民端報上來的名稱：去掉控制字元和頭尾空白，太長就截短。
+String cleanViewerName(String name) {
+  final cleaned = name.replaceAll(RegExp(r'[\x00-\x1f\x7f]'), ' ').trim();
+  final characters = cleaned.runes.toList();
+  if (characters.length <= maxViewerNameLength) return cleaned;
+  return String.fromCharCodes(characters.take(maxViewerNameLength)).trim();
+}
+
 /// 一次抄錄用的資料夾名稱：`{看板名稱}抄錄紀錄_26-11-25-14-30-05`。
 String recordingFolderName(String boardName, DateTime startedAt) {
   String two(int value) => (value % 100).toString().padLeft(2, '0');
@@ -68,6 +79,9 @@ class BoardRecorders {
   final Map<String, String> _names = {};
   final Set<String> _recording = {};
 
+  /// 每個鄉民端還沒回報「收到了」的照片編號。
+  final Map<String, Set<int>> _awaiting = {};
+
   /// 一個鄉民端加入了。
   void joined(String viewerId, String name) => _names[viewerId] = name;
 
@@ -75,6 +89,7 @@ class BoardRecorders {
   void left(String viewerId) {
     _names.remove(viewerId);
     _recording.remove(viewerId);
+    _awaiting.remove(viewerId);
   }
 
   /// 鄉民端開始抄錄。還沒加入的鄉民端不算。
@@ -90,6 +105,22 @@ class BoardRecorders {
 
   bool isRecording(String viewerId) => _recording.contains(viewerId);
 
+  /// 編號 [shotId] 的照片傳給這個鄉民端了，等它回報收到。
+  void shotSent(String viewerId, int shotId) {
+    if (_names.containsKey(viewerId)) {
+      _awaiting.putIfAbsent(viewerId, () => {}).add(shotId);
+    }
+  }
+
+  /// 鄉民端回報收到編號 [shotId] 的照片。真的傳過這一張給它、而且它還沒回報過，
+  /// 才回傳它的名稱（用來顯示誰抄錄了）；其他情況回傳 null，不能顯示提示：
+  /// 沒在抄錄的鄉民端、亂編的編號、重複回報，都不代表有人抄錄了。
+  String? shotConfirmed(String viewerId, int shotId) {
+    final awaiting = _awaiting[viewerId];
+    if (awaiting == null || !awaiting.remove(shotId)) return null;
+    return _names[viewerId];
+  }
+
   /// 鄉民端的名稱。不認得這個鄉民端時是 null。
   String? nameOf(String viewerId) => _names[viewerId];
 
@@ -97,6 +128,7 @@ class BoardRecorders {
   void clear() {
     _names.clear();
     _recording.clear();
+    _awaiting.clear();
   }
 }
 

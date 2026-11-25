@@ -38,6 +38,11 @@ class BoardDirectory {
     return true;
   }
 
+  /// 這個看板是不是手動加入的（而且沒有被自動搜尋到）。只有這種可以由使用者移除。
+  bool isManual(BoardInfo board) =>
+      _manual.any((b) => b.address == board.address) &&
+      !_discovered.values.any((b) => b.address == board.address);
+
   /// 移除一個手動加入的看板。自動搜尋到的不能這樣移除，它們由搜尋機制管理。
   void removeManual(BoardInfo board) =>
       _manual.removeWhere((b) => b.address == board.address);

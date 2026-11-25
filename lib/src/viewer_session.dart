@@ -22,7 +22,7 @@ class ViewerSession {
 
   ViewerState get state => _state;
 
-  /// 上一次觀看是怎麼結束的。回到清單時用來顯示「看板端不給看了」之類的提示。
+  /// 上一次觀看是怎麼結束的。連線中斷或逾時（沒有任何一方說結束）時是 null。
   ByeReason? get lastEndReason => _lastEndReason;
 
   /// 點了清單上的一個看板。
@@ -39,7 +39,9 @@ class ViewerSession {
   }
 
   /// 結束觀看，回到看板清單。連線中或觀看中都可以結束。
-  void end(ByeReason reason) {
+  ///
+  /// [reason] 是明確的結束原因；連線中斷、逾時這類沒有人說「結束」的情況給 null。
+  void end(ByeReason? reason) {
     if (_state == ViewerState.browsing) return;
     _state = ViewerState.browsing;
     _lastEndReason = reason;

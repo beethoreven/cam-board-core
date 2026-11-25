@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'board_info.dart';
 import 'raw_frame.dart';
+import 'recording.dart';
 
 /// 通訊協定版本。兩端版本不同時，鄉民端在 [JoinMessage] 就會被拒絕，
 /// 不會等到畫面出不來才發現。
@@ -32,9 +34,11 @@ enum ByeReason {
   /// 在網路上傳送時用的字串。
   final String wire;
 
+  /// 不認得的原因（對方比較新）當成 [boardStopped]：重點是「結束了」，
+  /// 不能因為看不懂原因就把整則結束訊息丟掉，否則這一端會以為還在看。
   static ByeReason fromWire(String wire) => values.firstWhere(
     (r) => r.wire == wire,
-    orElse: () => throw FormatException('未知的結束原因：$wire'),
+    orElse: () => ByeReason.boardStopped,
   );
 }
 
@@ -72,14 +76,17 @@ sealed class SignalMessage {
     final type = json['type'];
     return switch (type) {
       'hello' => HelloMessage(
-        name: _string(json, 'name'),
+        name: _boardName(json),
         protocol: _int(json, 'protocol'),
       ),
       'join' => JoinMessage(
         protocol: _int(json, 'protocol'),
         // 舊版的鄉民端不會帶名稱。這裡不能因此丟掉整則訊息，
         // 否則看板端沒辦法回覆它「版本不同」。
-        name: json['name'] is String ? json['name'] as String : '',
+        // 名稱是對方給的，會顯示在看板端畫面上，所以先整理過（長度、控制字元）。
+        name: json['name'] is String
+            ? cleanViewerName(json['name'] as String)
+            : '',
       ),
       'offer' => OfferMessage(sdp: _string(json, 'sdp')),
       'answer' => AnswerMessage(sdp: _string(json, 'sdp')),
@@ -101,6 +108,16 @@ sealed class SignalMessage {
       'bye' => ByeMessage(ByeReason.fromWire(_string(json, 'reason'))),
       _ => throw FormatException('未知的訊息種類：$type'),
     };
+  }
+
+  /// 看板名稱是對方給的，會顯示在清單上、也會用來取資料夾名稱。
+  /// 看板端自己註冊時就不能超過 [maxBoardNameBytes]，超過的不是正常的看板。
+  static String _boardName(Map<String, Object?> json) {
+    final name = _string(json, 'name');
+    if (utf8.encode(name).length > maxBoardNameBytes) {
+      throw const FormatException('看板名稱太長');
+    }
+    return name;
   }
 
   static String _string(Map<String, Object?> json, String key) {
@@ -240,7 +257,7 @@ final class ShotMessage extends SignalMessage {
     required int rotation,
   }) {
     if (!RawFrame.isValidSize(width, height)) {
-      throw FormatException('照片的寬和高必須是正的偶數：$width×$height');
+      throw FormatException('照片的寬和高不合理：$width×$height');
     }
     if (!RawFrame.isValidRotation(rotation)) {
       throw FormatException('照片的角度只能是 0、90、180、270：$rotation');

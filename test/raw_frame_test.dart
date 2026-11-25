@@ -46,6 +46,12 @@ void main() {
       expect(RawFrame.isValidSize(-2, 2), isFalse);
     });
 
+    test('大得不合理的不收', () {
+      expect(RawFrame.isValidSize(RawFrame.maxSide, RawFrame.maxSide), isTrue);
+      expect(RawFrame.isValidSize(RawFrame.maxSide + 2, 2), isFalse);
+      expect(RawFrame.isValidSize(2, RawFrame.maxSide + 2), isFalse);
+    });
+
     test('角度只能是四個方向', () {
       for (final ok in [0, 90, 180, 270]) {
         expect(RawFrame.isValidRotation(ok), isTrue);

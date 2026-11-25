@@ -74,4 +74,25 @@ void main() {
       isNull,
     );
   });
+
+  group('isLanPeer', () {
+    test('私有網段、同一台裝置、自動取得的位址都算區域網路', () {
+      for (final ok in [
+        '192.168.43.7',
+        '10.0.0.5',
+        '172.20.1.1',
+        '127.0.0.1',
+        '169.254.10.2',
+        '::ffff:192.168.1.5',
+      ]) {
+        expect(isLanPeer(ok), isTrue, reason: ok);
+      }
+    });
+
+    test('公開的位址和看不懂的位址不算', () {
+      for (final bad in ['8.8.8.8', '172.32.0.1', '100.64.0.1', '::1', 'abc']) {
+        expect(isLanPeer(bad), isFalse, reason: bad);
+      }
+    });
+  });
 }

@@ -1,5 +1,10 @@
 import 'board_info.dart';
 
+/// 鄉民端送出「我要看」之後，看板端最多等多久它回覆連線資訊。
+/// 超過就當它不看了：鏡頭不能為了一個沒有下文的連線一直開著。
+/// 正常的鄉民端自己只等 5 秒（見 `connect_progress.dart`），這裡留了餘裕。
+const Duration answerTimeout = Duration(seconds: 10);
+
 /// 看板端目前的狀態。
 enum BoardState {
   /// 還沒註冊，鄉民端看不到這個看板。

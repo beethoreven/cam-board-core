@@ -33,11 +33,20 @@ String validateBoardName(String input) {
 
 /// 鄉民端看到的一個看板：名稱，加上連過去需要的位址。
 class BoardInfo {
-  const BoardInfo({required this.name, required this.host, required this.port});
+  const BoardInfo({
+    required this.name,
+    required this.host,
+    required this.port,
+    this.protocol,
+  });
 
   final String name;
   final String host;
   final int port;
+
+  /// 看板端廣播時附上的通訊協定版本。手動輸入位址、或廣播裡沒有時是 null，
+  /// 這時要等連上之後看 `hello` 才知道。
+  final int? protocol;
 
   /// 連到這個看板的 WebSocket 位址。
   Uri get signalUri => Uri(scheme: 'ws', host: host, port: port);
@@ -71,10 +80,11 @@ class BoardInfo {
       other is BoardInfo &&
       other.name == name &&
       other.host == host &&
-      other.port == port;
+      other.port == port &&
+      other.protocol == protocol;
 
   @override
-  int get hashCode => Object.hash(name, host, port);
+  int get hashCode => Object.hash(name, host, port, protocol);
 
   @override
   String toString() => 'BoardInfo($name @ $address)';

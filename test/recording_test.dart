@@ -126,6 +126,32 @@ void main() {
       expect(recorders.nameOf('a'), '阿明');
     });
 
+    test('傳過照片給它，它回報收到，才知道是誰抄錄了', () {
+      recorders.joined('a', '阿明');
+      recorders.started('a');
+      recorders.shotSent('a', 7);
+
+      expect(recorders.shotConfirmed('a', 7), '阿明');
+    });
+
+    test('同一張只算一次', () {
+      recorders.joined('a', '阿明');
+      recorders.shotSent('a', 7);
+      recorders.shotConfirmed('a', 7);
+
+      expect(recorders.shotConfirmed('a', 7), isNull);
+    });
+
+    test('沒傳過的編號、沒傳給它的照片，回報了也不算', () {
+      recorders.joined('a', '阿明');
+      recorders.joined('b', '小華');
+      recorders.shotSent('a', 7);
+
+      expect(recorders.shotConfirmed('a', 8), isNull);
+      expect(recorders.shotConfirmed('b', 7), isNull);
+      expect(recorders.shotConfirmed('stranger', 7), isNull);
+    });
+
     test('全部清掉', () {
       recorders.joined('a', '阿明');
       recorders.started('a');

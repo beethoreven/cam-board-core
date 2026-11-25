@@ -87,6 +87,14 @@ void main() {
       expect(directory.boards, [manual]);
     });
 
+    test('分得出哪些是手動加入的', () {
+      final directory = BoardDirectory()
+        ..found('id-a', a)
+        ..addManual(const BoardInfo(name: '手動', host: '10.0.0.9', port: 47800));
+      expect(directory.isManual(directory.boards.last), isTrue);
+      expect(directory.isManual(a), isFalse);
+    });
+
     test('可以移除', () {
       final directory = BoardDirectory()
         ..addManual(a)
