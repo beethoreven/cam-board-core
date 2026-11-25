@@ -125,6 +125,27 @@ void main() {
     expect(focus.lockedDistance, isNull);
   });
 
+  group('鎖住之後要把鏡頭固定在那個距離', () {
+    test('開關關著：回傳固定距離的指令', () {
+      focus.setAutoFocus(false);
+      expect(focus.locked(4.2), const DistanceFocus(4.2));
+    });
+
+    test('點擊對焦後的等待期間：回傳固定距離的指令', () {
+      focus.tapped(0.3, 0.7);
+      expect(focus.locked(2.5), const DistanceFocus(2.5));
+    });
+
+    test('鏡頭沒回報距離：沒有指令', () {
+      focus.setAutoFocus(false);
+      expect(focus.locked(null), isNull);
+    });
+
+    test('開關開著、也沒有在等待：沒有指令', () {
+      expect(focus.locked(9), isNull);
+    });
+  });
+
   test('重新註冊：回到開著，忘掉鎖住的距離', () {
     focus.setAutoFocus(false);
     focus.locked(4.2);

@@ -103,9 +103,15 @@ class FocusControl {
   }
 
   /// 鏡頭回報鎖住的對焦距離（點擊對焦完成，或關掉開關之後）。
-  void locked(double? distance) {
-    if (_autoFocus && !_holdingTap) return;
+  ///
+  /// 回傳接下來要讓鏡頭做的事：有距離可用時，改成直接把鏡頭固定在那個距離。
+  /// 只把相機設成「不觸發就不對焦」是不夠的：實機上（OPPO Reno5 5G）畫面內容
+  /// 一變，相機還是會自己重新對焦，所以要用固定距離才真的鎖得住。
+  /// 不需要鎖、或相機沒有回報距離時回傳 null。
+  FocusCommand? locked(double? distance) {
+    if (_autoFocus && !_holdingTap) return null;
     _lockedDistance = distance;
+    return distance == null ? null : DistanceFocus(distance);
   }
 
   /// 點擊對焦後的等待時間到了。開關還開著就恢復自動對焦，否則不用做事。
