@@ -35,6 +35,17 @@ void main() {
       expect(shotFileName(42), '042.png');
       expect(shotFileName(1234), '1234.png');
     });
+
+    test('照片檔名前面加上這次抄錄開始的時間', () {
+      final startedAt = DateTime(2026, 11, 27, 11, 31, 10);
+      expect(shotFileName(1, startedAt), '2026_11_27_11_31_10_001.png');
+      expect(shotFileName(42, startedAt), '2026_11_27_11_31_10_042.png');
+      // 個位數的月、日、時、分、秒補成兩位。
+      expect(
+        shotFileName(3, DateTime(2027, 1, 2, 3, 4, 5)),
+        '2027_01_02_03_04_05_003.png',
+      );
+    });
   });
 
   group('鄉民端的抄錄', () {
@@ -294,6 +305,14 @@ void main() {
       expect(recording.firstTime(5), isTrue);
       expect(recording.firstTime(5), isFalse);
       expect(recording.firstTime(6), isTrue);
+    });
+
+    test('同一次抄錄的每一張都用開始的時間，不是存檔當下的時間', () {
+      final recording = ViewerRecording()
+        ..start('/tmp/x', DateTime(2026, 11, 27, 11, 31, 10));
+      expect(recording.nextFileName(), '2026_11_27_11_31_10_001.png');
+      recording.saved();
+      expect(recording.nextFileName(), '2026_11_27_11_31_10_002.png');
     });
 
     test('新的一次抄錄重新算（看板端重開後編號會從頭來）', () {

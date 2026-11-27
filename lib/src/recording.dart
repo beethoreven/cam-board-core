@@ -39,12 +39,30 @@ String recordingFolderName(String boardName, DateTime startedAt) {
   return '${safeFileName(boardName)}抄錄紀錄_$time';
 }
 
-/// 一次抄錄裡第 [number] 張照片的檔名，從 1 開始：`001.png`。
-String shotFileName(int number) => '${number.toString().padLeft(3, '0')}.png';
+/// 一次抄錄裡第 [number] 張照片的檔名，從 1 開始。
+///
+/// 前面加上這次抄錄開始的時間：`2026_11_27_11_31_10_001.png`（年四位，其餘各兩位，
+/// 用 `_` 連接）。這樣把好幾次抄錄的照片放進同一個資料夾也不會撞名，
+/// 單看檔名就知道是哪一次拍的。沒給 [startedAt] 時只有流水號：`001.png`。
+String shotFileName(int number, [DateTime? startedAt]) {
+  final serial = number.toString().padLeft(3, '0');
+  if (startedAt == null) return '$serial.png';
+  String two(int value) => value.toString().padLeft(2, '0');
+  final stamp = [
+    startedAt.year.toString().padLeft(4, '0'),
+    two(startedAt.month),
+    two(startedAt.day),
+    two(startedAt.hour),
+    two(startedAt.minute),
+    two(startedAt.second),
+  ].join('_');
+  return '${stamp}_$serial.png';
+}
 
 /// 鄉民端這一邊的抄錄狀態。
 class ViewerRecording {
   String? _folder;
+  DateTime? _startedAt;
   int _saved = 0;
 
   /// 這次抄錄已經收過的照片編號。照片卡住時看板端會補送，補送的那一張
@@ -59,10 +77,12 @@ class ViewerRecording {
   /// 這次抄錄已經存了幾張。
   int get savedCount => _saved;
 
-  /// 開始抄錄，照片存到 [folder]。
-  void start(String folder) {
+  /// 開始抄錄，照片存到 [folder]。[startedAt] 是這次抄錄開始的時間
+  /// （跟資料夾名稱裡的是同一個），會加在每一張照片的檔名前面。
+  void start(String folder, [DateTime? startedAt]) {
     if (active) throw StateError('已經在抄錄了，要先按「抄錄完了」');
     _folder = folder;
+    _startedAt = startedAt;
     _saved = 0;
     _received.clear();
   }
@@ -74,7 +94,7 @@ class ViewerRecording {
   /// 下一張照片該用的檔名。
   String nextFileName() {
     if (!active) throw StateError('沒有在抄錄');
-    return shotFileName(_saved + 1);
+    return shotFileName(_saved + 1, _startedAt);
   }
 
   /// 剛才那張存好了。
