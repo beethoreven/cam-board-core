@@ -143,8 +143,30 @@ class BoardRecorders {
   }
 
   /// 再留一張 [bytes] 這麼大的照片，會不會超過上限（[maxPendingShotBytes]）。
-  /// 會的話這一次不能拍：前面的還沒送到，再拍只會越積越多。
+  /// 會的話先用 [dropOldest] 騰出位置：新拍的比還沒送到的舊照片重要，不能擋著不給拍。
   bool hasRoomFor(int bytes) => pendingBytes + bytes <= maxPendingShotBytes;
+
+  /// 放棄最舊的那一張還沒被確認的照片（所有還在等它的鄉民端都不再等），
+  /// 把它佔的位置空出來。回傳沒收到它的鄉民端，用來告訴使用者；沒有照片可丟時是空的。
+  List<({String viewerId, String name, int id})> dropOldest() {
+    int? oldest;
+    for (final shots in _awaiting.values) {
+      for (final shot in shots.values) {
+        if (shot.frame != null && (oldest == null || shot.id < oldest)) {
+          oldest = shot.id;
+        }
+      }
+    }
+    if (oldest == null) return const [];
+    final dropped = <({String viewerId, String name, int id})>[];
+    for (final viewerId in _awaiting.keys.toList()) {
+      final name = giveUp(viewerId, oldest);
+      if (name != null) {
+        dropped.add((viewerId: viewerId, name: name, id: oldest));
+      }
+    }
+    return dropped;
+  }
 
   /// 這個鄉民端接回來了：回傳要補送給它的照片（照編號），並各記一次補送。
   /// 已經補送過 [maxShotResends] 次的不再送，等時間到了由 [giveUp] 放棄。
@@ -205,6 +227,3 @@ String shotSavedNotice(String viewerName) => '$viewerName抄錄了這個內容';
 
 /// 看板端顯示的提示：補送到最後，這位鄉民還是沒收到這一張。
 String shotLostNotice(String viewerName) => '$viewerName沒收到這張，請再拍一次';
-
-/// 看板端顯示的提示：前面的照片還沒送到，暫存滿了，這一次不拍。
-const String shotsBackedUpNotice = '前面的照片還在傳，請等一下再拍';

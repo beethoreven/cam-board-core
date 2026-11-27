@@ -246,6 +246,39 @@ void main() {
       expect(recorders.hasRoomFor(big.i420.length), isTrue);
     });
 
+    test('滿了就丟最舊的那一張，並回報誰沒收到', () {
+      final recorders = withA()
+        ..joined('b', '小華')
+        ..started('b');
+      final shared = frame();
+      recorders.shotSent('a', 3, shared);
+      recorders.shotSent('b', 3, shared);
+      recorders.shotSent('a', 5, frame());
+      // b 已經收到 3 了，只有 a 還在等。
+      recorders.shotConfirmed('b', 3);
+
+      expect(recorders.dropOldest(), [(viewerId: 'a', name: '阿明', id: 3)]);
+      // 被丟掉的不能再補送，也不能再被確認。
+      expect(recorders.resend('a').map((shot) => shot.id), [5]);
+      expect(recorders.shotConfirmed('a', 3), isNull);
+    });
+
+    test('同一張好幾個人都沒收到：一起丟，每個人都回報', () {
+      final recorders = withA()
+        ..joined('b', '小華')
+        ..started('b');
+      final shared = frame();
+      recorders.shotSent('a', 1, shared);
+      recorders.shotSent('b', 1, shared);
+
+      expect(recorders.dropOldest().map((lost) => lost.name), ['阿明', '小華']);
+      expect(recorders.pendingBytes, 0);
+    });
+
+    test('沒有照片可丟時什麼都不做', () {
+      expect(withA().dropOldest(), isEmpty);
+    });
+
     test('鄉民端離開後，它沒確認的照片不再佔記憶體', () {
       final recorders = withA();
       recorders.shotSent('a', 1, frame());
