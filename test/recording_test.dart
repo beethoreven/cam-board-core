@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:cam_board_core/cam_board_core.dart';
 import 'package:test/test.dart';
 
@@ -164,5 +166,110 @@ void main() {
 
   test('提示的文字', () {
     expect(shotSavedNotice('阿明'), '阿明抄錄了這個內容');
+  });
+
+  group('看板端留著還沒確認的照片', () {
+    RawFrame frame([int width = 4, int height = 2]) => RawFrame(
+      width: width,
+      height: height,
+      rotation: 0,
+      i420: Uint8List(RawFrame.byteLength(width, height)),
+    );
+
+    BoardRecorders withA() => BoardRecorders()
+      ..joined('a', '阿明')
+      ..started('a');
+
+    test('接回來時把還沒確認的照片照編號補送', () {
+      final recorders = withA();
+      recorders.shotSent('a', 2, frame());
+      recorders.shotSent('a', 1, frame());
+      recorders.shotSent('a', 3, frame());
+      recorders.shotConfirmed('a', 2);
+      expect(recorders.resend('a').map((shot) => shot.id), [1, 3]);
+    });
+
+    test('一張最多補送 3 次', () {
+      final recorders = withA();
+      recorders.shotSent('a', 1, frame());
+      for (var i = 0; i < maxShotResends; i++) {
+        expect(recorders.resend('a'), hasLength(1));
+      }
+      expect(recorders.resend('a'), isEmpty);
+    });
+
+    test('沒有留畫面的照片不能補送', () {
+      final recorders = withA();
+      recorders.shotSent('a', 1);
+      expect(recorders.resend('a'), isEmpty);
+    });
+
+    test('等太久放棄時，回傳沒收到的那位鄉民的名稱', () {
+      final recorders = withA();
+      recorders.shotSent('a', 1, frame());
+      expect(recorders.giveUp('a', 1), '阿明');
+      // 放棄之後它才回報：不算數，也不能再放棄一次。
+      expect(recorders.shotConfirmed('a', 1), isNull);
+      expect(recorders.giveUp('a', 1), isNull);
+    });
+
+    test('已經確認的照片放棄不了', () {
+      final recorders = withA();
+      recorders.shotSent('a', 1, frame());
+      recorders.shotConfirmed('a', 1);
+      expect(recorders.giveUp('a', 1), isNull);
+    });
+
+    test('同一張傳給兩個鄉民端只佔一份記憶體，都確認了才釋放', () {
+      final recorders = withA()
+        ..joined('b', '小華')
+        ..started('b');
+      final shared = frame();
+      recorders.shotSent('a', 1, shared);
+      recorders.shotSent('b', 1, shared);
+      expect(recorders.pendingBytes, shared.i420.length);
+      recorders.shotConfirmed('a', 1);
+      expect(recorders.pendingBytes, shared.i420.length);
+      recorders.shotConfirmed('b', 1);
+      expect(recorders.pendingBytes, 0);
+    });
+
+    test('暫存超過 20 MB 就沒有位置再留一張', () {
+      final recorders = withA();
+      final big = frame(1920, 1080);
+      var id = 0;
+      while (recorders.hasRoomFor(big.i420.length)) {
+        recorders.shotSent('a', ++id, big);
+      }
+      expect(id, maxPendingShotBytes ~/ big.i420.length);
+      recorders.shotConfirmed('a', 1);
+      expect(recorders.hasRoomFor(big.i420.length), isTrue);
+    });
+
+    test('鄉民端離開後，它沒確認的照片不再佔記憶體', () {
+      final recorders = withA();
+      recorders.shotSent('a', 1, frame());
+      recorders.left('a');
+      expect(recorders.pendingBytes, 0);
+      expect(recorders.resend('a'), isEmpty);
+    });
+  });
+
+  group('鄉民端不重複存同一張', () {
+    test('同一個編號第二次收到時不用再存', () {
+      final recording = ViewerRecording()..start('/tmp/x');
+      expect(recording.firstTime(5), isTrue);
+      expect(recording.firstTime(5), isFalse);
+      expect(recording.firstTime(6), isTrue);
+    });
+
+    test('新的一次抄錄重新算（看板端重開後編號會從頭來）', () {
+      final recording = ViewerRecording()..start('/tmp/x');
+      recording.firstTime(1);
+      recording
+        ..stop()
+        ..start('/tmp/y');
+      expect(recording.firstTime(1), isTrue);
+    });
   });
 }

@@ -161,4 +161,59 @@ void main() {
       expect(decoded.name, startsWith('阿 明'));
     });
   });
+
+  group('卡住時救回來用的訊息', () {
+    test('加入時帶上這一次觀看的代號', () {
+      final decoded = SignalMessage.decode(
+        const JoinMessage(name: '阿明', session: 'abc123').encode(),
+      );
+      expect((decoded as JoinMessage).session, 'abc123');
+    });
+
+    test('舊版的加入沒有代號，當成不支援接回', () {
+      final decoded = SignalMessage.decode('{"type":"join","protocol":4}');
+      expect((decoded as JoinMessage).session, '');
+    });
+
+    test('太長的代號當成沒有', () {
+      final decoded = SignalMessage.decode(
+        JoinMessage(session: 'x' * (maxSessionLength + 1)).encode(),
+      );
+      expect((decoded as JoinMessage).session, '');
+    });
+
+    test('接回', () {
+      final decoded = SignalMessage.decode(
+        const ResumeMessage(session: 'abc123').encode(),
+      );
+      decoded as ResumeMessage;
+      expect(decoded.session, 'abc123');
+      expect(decoded.isCompatible, isTrue);
+    });
+
+    test('版本不同的接回看得出來', () {
+      final decoded = SignalMessage.decode(
+        '{"type":"resume","protocol":4,"session":"abc"}',
+      );
+      expect((decoded as ResumeMessage).isCompatible, isFalse);
+    });
+
+    test('詢問與回覆帶同一個編號', () {
+      expect(
+        (SignalMessage.decode(const PingMessage(7).encode()) as PingMessage).n,
+        7,
+      );
+      expect(
+        (SignalMessage.decode(const PongMessage(7).encode()) as PongMessage).n,
+        7,
+      );
+    });
+
+    test('重建視訊', () {
+      expect(
+        SignalMessage.decode(const VideoRestartMessage().encode()),
+        isA<VideoRestartMessage>(),
+      );
+    });
+  });
 }

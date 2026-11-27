@@ -13,7 +13,10 @@ import 'recording.dart';
 /// 版本 4：照片改送還沒壓縮的畫面（見 [RawFrame]），[ShotMessage] 改帶寬、高和角度；
 /// 壓成 PNG 改由鄉民端做。`shot_saved` 改成 `shot_received`：鄉民端收完整就回報，
 /// 不等存檔。
-const int protocolVersion = 4;
+/// 版本 5：卡住時自己救回來（規則見 `recovery.dart`）。[JoinMessage] 帶上這一次觀看的
+/// 代號；新增 [ResumeMessage]（換一條新的連線接回同一次觀看）、[PingMessage]／
+/// [PongMessage]（鄉民端確認看板端還有回應）、[VideoRestartMessage]（重建視訊連線）。
+const int protocolVersion = 5;
 
 /// 結束觀看的原因。
 enum ByeReason {
@@ -87,7 +90,15 @@ sealed class SignalMessage {
         name: json['name'] is String
             ? cleanViewerName(json['name'] as String)
             : '',
+        session: _session(json),
       ),
+      'resume' => ResumeMessage(
+        protocol: _int(json, 'protocol'),
+        session: _session(json),
+      ),
+      'ping' => PingMessage(_int(json, 'n')),
+      'pong' => PongMessage(_int(json, 'n')),
+      'video_restart' => const VideoRestartMessage(),
       'offer' => OfferMessage(sdp: _string(json, 'sdp')),
       'answer' => AnswerMessage(sdp: _string(json, 'sdp')),
       'candidate' => CandidateMessage(
@@ -118,6 +129,13 @@ sealed class SignalMessage {
       throw const FormatException('看板名稱太長');
     }
     return name;
+  }
+
+  /// 這一次觀看的代號。舊版的鄉民端不會帶，當成沒有（就不能接回）。
+  /// 太長的不是正常的鄉民端，同樣當成沒有。
+  static String _session(Map<String, Object?> json) {
+    final value = json['session'];
+    return value is String && value.length <= maxSessionLength ? value : '';
   }
 
   static String _string(Map<String, Object?> json, String key) {
@@ -152,14 +170,25 @@ final class HelloMessage extends SignalMessage {
   };
 }
 
+/// 這一次觀看的代號最多幾個字。
+const int maxSessionLength = 64;
+
 /// 鄉民端：我要看這個看板。
 final class JoinMessage extends SignalMessage {
-  const JoinMessage({this.protocol = protocolVersion, this.name = ''});
+  const JoinMessage({
+    this.protocol = protocolVersion,
+    this.name = '',
+    this.session = '',
+  });
 
   final int protocol;
 
   /// 鄉民的名稱，看板端用來顯示「誰抄錄了這個內容」。
   final String name;
+
+  /// 這一次觀看的代號，鄉民端自己隨機產生。連線卡住時，鄉民端會開一條新的連線，
+  /// 用 [ResumeMessage] 帶同一個代號接回來。空字串代表不支援接回。
+  final String session;
 
   bool get isCompatible => protocol == protocolVersion;
 
@@ -168,7 +197,56 @@ final class JoinMessage extends SignalMessage {
     'type': 'join',
     'protocol': protocol,
     'name': name,
+    'session': session,
   };
+}
+
+/// 鄉民端（在一條新的連線上）：我是代號 [session] 的那一次觀看，原本那條連線卡住了，
+/// 改用這一條。看板端把那位鄉民端的狀態搬過來，並把還沒確認的照片再送一次；
+/// 不認得這個代號就回 [ByeMessage]。
+final class ResumeMessage extends SignalMessage {
+  const ResumeMessage({required this.session, this.protocol = protocolVersion});
+
+  final String session;
+  final int protocol;
+
+  bool get isCompatible => protocol == protocolVersion;
+
+  @override
+  Map<String, Object?> toJson() => {
+    'type': 'resume',
+    'protocol': protocol,
+    'session': session,
+  };
+}
+
+/// 鄉民端：你還在嗎？看板端要用同一個 [n] 回 [PongMessage]。
+final class PingMessage extends SignalMessage {
+  const PingMessage(this.n);
+
+  final int n;
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'ping', 'n': n};
+}
+
+/// 看板端：我還在（回覆 [PingMessage]）。
+final class PongMessage extends SignalMessage {
+  const PongMessage(this.n);
+
+  final int n;
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'pong', 'n': n};
+}
+
+/// 鄉民端：畫面停住了，請把視訊連線整條重建。看板端關掉舊的、送一則新的
+/// [OfferMessage]；鏡頭和抄錄的狀態都不動。
+final class VideoRestartMessage extends SignalMessage {
+  const VideoRestartMessage();
+
+  @override
+  Map<String, Object?> toJson() => {'type': 'video_restart'};
 }
 
 /// 看板端：這是我的畫面連線資訊。
