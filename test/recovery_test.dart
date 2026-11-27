@@ -58,6 +58,15 @@ void main() {
       expect(detector.sample(0, s(5)), isTrue);
     });
 
+    test('回報已經多久沒有新畫面', () {
+      final detector = VideoStallDetector()..connectionStarted(s(0));
+      detector.sample(30, s(1));
+      detector.sample(30, s(3.5));
+      expect(detector.stalledFor(s(3.5)), s(2.5));
+      detector.sample(31, s(4));
+      expect(detector.stalledFor(s(4)), Duration.zero);
+    });
+
     test('重建之後張數從零算起，要真的解出畫面才算有畫面', () {
       final detector = VideoStallDetector()..connectionStarted(s(0));
       detector.sample(900, s(30));
@@ -86,6 +95,15 @@ void main() {
       heartbeat.ask(s(2));
       expect(heartbeat.silent(s(2.9)), isFalse);
       expect(heartbeat.silent(s(3)), isTrue);
+    });
+
+    test('回報已經等了多久沒有回應', () {
+      final heartbeat = Heartbeat();
+      heartbeat.ask(s(0));
+      heartbeat.ask(s(1));
+      expect(heartbeat.waitingFor(s(2)), s(2));
+      heartbeat.heard();
+      expect(heartbeat.waitingFor(s(2.5)), Duration.zero);
     });
 
     test('每次詢問的編號都不同', () {

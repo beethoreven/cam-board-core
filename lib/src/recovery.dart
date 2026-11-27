@@ -72,6 +72,12 @@ class VideoStallDetector {
     _lastProgress = now;
   }
 
+  /// 到 [now] 為止，已經多久沒有新畫面了。
+  Duration stalledFor(Duration now) {
+    final last = _lastProgress;
+    return last == null ? Duration.zero : now - last;
+  }
+
   /// 讀到一次統計：到目前為止解出 [framesDecoded] 張。回傳畫面是不是停住了。
   bool sample(int framesDecoded, Duration now) {
     _lastProgress ??= now;
@@ -103,6 +109,12 @@ class Heartbeat {
 
   /// 收到看板端的任何訊息或資料。
   void heard() => _waitingSince = null;
+
+  /// 到 [now] 為止，問了之後已經等了多久都沒有任何回應。有回應時是零。
+  Duration waitingFor(Duration now) {
+    final since = _waitingSince;
+    return since == null ? Duration.zero : now - since;
+  }
 
   /// 問了卻太久沒有任何回應：這條連線卡住了。
   bool silent(Duration now) {
